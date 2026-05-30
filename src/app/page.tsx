@@ -1,4 +1,5 @@
 import { mockGameState } from "@/data/mockQuiz";
+import { TopicSelector } from "@/components/TopicSelector";
 
 export default function Home() {
   const currentQuestion =
@@ -35,24 +36,7 @@ export default function Home() {
               first pass keeps the experience sharp and ready for production.
             </p>
 
-            <form className="mt-8 flex w-full max-w-xl flex-col gap-3 rounded-lg border border-neutral-950/15 bg-white p-3 shadow-[0_18px_45px_rgba(23,23,23,0.08)] sm:flex-row">
-              <label className="sr-only" htmlFor="topic">
-                Topic
-              </label>
-              <input
-                id="topic"
-                name="topic"
-                type="text"
-                placeholder="Try: Ancient Rome, coffee, JavaScript"
-                className="min-h-12 flex-1 rounded-md border border-neutral-950/10 bg-[#fbfaf6] px-4 text-base outline-none transition focus:border-[#2f6f73] focus:ring-4 focus:ring-[#2f6f73]/15"
-              />
-              <button
-                type="button"
-                className="min-h-12 rounded-md bg-neutral-950 px-6 text-base font-bold text-white transition hover:bg-[#2f6f73] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25"
-              >
-                Generate
-              </button>
-            </form>
+            <TopicSelector />
           </div>
 
           <aside className="rounded-lg border border-neutral-950/15 bg-white p-5 shadow-[0_18px_45px_rgba(23,23,23,0.08)] sm:p-6">
