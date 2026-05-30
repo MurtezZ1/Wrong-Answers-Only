@@ -26,8 +26,8 @@ export const mockQuestion: QuizQuestion = {
     {
       id: "answer-gravity-c",
       label: "C",
-      text: "The force that attracts masses toward each other",
-      isCorrect: true,
+      text: "A planet-sized magnet under every shoe",
+      isCorrect: false,
     },
     {
       id: "answer-gravity-d",
