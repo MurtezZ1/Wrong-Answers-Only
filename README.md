@@ -181,35 +181,51 @@ real trivia question while hiding the real answer completely.
 
 ## Deployment on Replit
 
-1. Create a new Replit project and import the GitHub repository.
-2. In Replit Secrets, add:
+This project includes a `.replit` file for Replit. It runs:
+
+```bash
+npm run dev:replit
+```
+
+That script starts Next.js on `0.0.0.0:3000`, which allows Replit to expose the
+app on the public Replit URL.
+
+1. Create a new Replit project.
+2. Import the GitHub repository or upload the project files.
+3. Open **Tools > Secrets** and add:
 
 ```text
 OPENAI_API_KEY=your_openai_api_key_here
 ```
 
-3. Install dependencies:
+Do not put the API key directly in the source code or README.
+
+4. Install dependencies:
 
 ```bash
 npm install
 ```
 
-4. Set the run command to:
+5. Press **Run**. Replit will use `.replit` and start the app with:
+
+```bash
+npm run dev:replit
+```
+
+6. Open the generated public Replit URL.
+
+For a production-style Replit deployment, the `.replit` deployment command runs:
+
+```bash
+npm run build
+npm run start:replit
+```
+
+Local development still uses:
 
 ```bash
 npm run dev
 ```
-
-For a production-style Replit deployment, use:
-
-```bash
-npm run build
-npm run start
-```
-
-5. Make sure the app is served on the port provided by Replit. Next.js will
-   read `process.env.PORT` automatically in many hosting environments when
-   started through the platform.
 
 ## Notes
 
