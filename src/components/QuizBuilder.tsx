@@ -1,12 +1,27 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { mockGameState } from "@/data/mockQuiz";
 import { presetTopics } from "@/data/topics";
 import type { GenerateQuizResponse } from "@/types/generate";
 import type { QuizQuestion, Topic } from "@/types/quiz";
 
 const customTopicId = "topic-custom";
+const statsStorageKey = "wrong-answers-only:stats:v1";
+
+type GameStats = {
+  totalAnswered: number;
+  currentStreak: number;
+  bestStreak: number;
+  selectedTopics: Record<string, number>;
+};
+
+const initialStats: GameStats = {
+  totalAnswered: 0,
+  currentStreak: 0,
+  bestStreak: 0,
+  selectedTopics: {},
+};
 
 export function QuizBuilder() {
   const [selectedTopicId, setSelectedTopicId] = useState<Topic["id"] | null>(
@@ -22,6 +37,8 @@ export function QuizBuilder() {
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [stats, setStats] = useState<GameStats>(initialStats);
+  const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
   const trimmedCustomTopic = customTopic.trim();
 
@@ -36,6 +53,18 @@ export function QuizBuilder() {
   }, [selectedTopicId, trimmedCustomTopic]);
 
   const canGenerate = Boolean(selectedTopic) && !isLoading;
+  const selectedTopicCount = Object.keys(stats.selectedTopics).length;
+
+  useEffect(() => {
+    setStats(loadStoredStats());
+    setHasLoadedStats(true);
+  }, []);
+
+  useEffect(() => {
+    if (hasLoadedStats) {
+      localStorage.setItem(statsStorageKey, JSON.stringify(stats));
+    }
+  }, [hasLoadedStats, stats]);
 
   async function handleGenerate() {
     if (!selectedTopic || isLoading) {
@@ -77,6 +106,29 @@ export function QuizBuilder() {
     } finally {
       setIsLoading(false);
     }
+  }
+
+  function handleAnswerSelect(answerId: string) {
+    if (selectedAnswerId) {
+      setSelectedAnswerId(answerId);
+      return;
+    }
+
+    setSelectedAnswerId(answerId);
+    setStats((currentStats) => {
+      const nextCurrentStreak = currentStats.currentStreak + 1;
+
+      return {
+        totalAnswered: currentStats.totalAnswered + 1,
+        currentStreak: nextCurrentStreak,
+        bestStreak: Math.max(currentStats.bestStreak, nextCurrentStreak),
+        selectedTopics: {
+          ...currentStats.selectedTopics,
+          [questionTopic.name]:
+            (currentStats.selectedTopics[questionTopic.name] ?? 0) + 1,
+        },
+      };
+    });
   }
 
   return (
@@ -167,6 +219,13 @@ export function QuizBuilder() {
             </p>
           ) : null}
         </div>
+
+        <div className="mt-4 grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+          <StatCard label="Answered" value={stats.totalAnswered} />
+          <StatCard label="Streak" value={stats.currentStreak} />
+          <StatCard label="Best" value={stats.bestStreak} />
+          <StatCard label="Topics" value={selectedTopicCount} />
+        </div>
       </div>
 
       <aside
@@ -202,7 +261,7 @@ export function QuizBuilder() {
                     isDimmed ? "opacity-55" : "opacity-100",
                   ].join(" ")}
                   disabled={isLoading}
-                  onClick={() => setSelectedAnswerId(answer.id)}
+                  onClick={() => handleAnswerSelect(answer.id)}
                   type="button"
                 >
                   <span
@@ -247,6 +306,58 @@ export function QuizBuilder() {
       </aside>
     </>
   );
+}
+
+function StatCard({ label, value }: { label: string; value: number }) {
+  return (
+    <div className="rounded-md border border-neutral-950/10 bg-white p-3 shadow-[0_10px_24px_rgba(23,23,23,0.05)]">
+      <p className="text-xs font-black uppercase tracking-[0.14em] text-neutral-500">
+        {label}
+      </p>
+      <p className="mt-1 text-2xl font-black text-neutral-950">{value}</p>
+    </div>
+  );
+}
+
+function loadStoredStats() {
+  try {
+    const storedStats = localStorage.getItem(statsStorageKey);
+
+    if (!storedStats) {
+      return initialStats;
+    }
+
+    const parsedStats = JSON.parse(storedStats) as unknown;
+
+    if (!isStoredStats(parsedStats)) {
+      return initialStats;
+    }
+
+    return parsedStats;
+  } catch {
+    return initialStats;
+  }
+}
+
+function isStoredStats(value: unknown): value is GameStats {
+  if (typeof value !== "object" || value === null || Array.isArray(value)) {
+    return false;
+  }
+
+  const stats = value as Partial<GameStats>;
+
+  return (
+    isSafeNumber(stats.totalAnswered) &&
+    isSafeNumber(stats.currentStreak) &&
+    isSafeNumber(stats.bestStreak) &&
+    typeof stats.selectedTopics === "object" &&
+    stats.selectedTopics !== null &&
+    !Array.isArray(stats.selectedTopics)
+  );
+}
+
+function isSafeNumber(value: unknown): value is number {
+  return typeof value === "number" && Number.isInteger(value) && value >= 0;
 }
 
 async function readGenerateResponse(response: Response) {
