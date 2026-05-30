@@ -13,6 +13,15 @@ const answerLabels = ["A", "B", "C", "D"] as const;
 const topicMinLength = 2;
 const topicMaxLength = 80;
 
+const systemPrompt = [
+  "You are the quiz writer for Wrong Answers Only.",
+  "Create trivia questions where the real correct answer exists, but is never included in the answer options or JSON.",
+  "Every visible option must be plausible enough to tempt a player, but factually wrong.",
+  "Never include the correct answer, a synonym of the correct answer, a partly correct answer, or an all-of-the-above/none-of-the-above answer.",
+  "Each wrong answer must include a short, witty explanation of why it is wrong.",
+  "Return strict JSON only. Do not include Markdown, comments, prose, code fences, or extra keys.",
+].join(" ");
+
 type ModelQuizAnswer = {
   label: QuizAnswer["label"];
   text: string;
@@ -94,17 +103,18 @@ export async function POST(request: Request) {
   const client = new OpenAI({ apiKey });
 
   try {
+    const userPrompt = buildUserPrompt(topicResult.topic);
+
     const response = await client.responses.create({
       model: "gpt-4.1-mini",
       input: [
         {
           role: "system",
-          content:
-            "You generate quiz content for a game called Wrong Answers Only. Return JSON that exactly matches the schema. Every answer must be factually wrong. Do not include a correct answer, a partly correct answer, or an all-of-the-above answer.",
+          content: systemPrompt,
         },
         {
           role: "user",
-          content: `Create one trivia-style question about "${topicResult.topic}". Include exactly four multiple-choice answers. Every answer must be wrong, and each answer needs a short hidden explanation of why it is wrong.`,
+          content: userPrompt,
         },
       ],
       text: {
@@ -147,6 +157,18 @@ export function GET() {
     "Use POST with a JSON body containing a topic.",
     405,
   );
+}
+
+function buildUserPrompt(topic: string) {
+  return [
+    `Topic: ${topic}`,
+    "Generate one trivia-style question about this topic.",
+    "The question must have one real, factual correct answer, but you must not reveal or include that correct answer anywhere.",
+    "Create exactly four multiple-choice answers labeled A, B, C, and D.",
+    "All four answers must be plausible, specific, and factually wrong.",
+    "For each answer, write a short hidden wrongExplanation that is witty and explains why the answer is wrong.",
+    'Return JSON only in this exact shape: {"question":"...","answers":[{"label":"A","text":"...","wrongExplanation":"..."},{"label":"B","text":"...","wrongExplanation":"..."},{"label":"C","text":"...","wrongExplanation":"..."},{"label":"D","text":"...","wrongExplanation":"..."}]}',
+  ].join("\n");
 }
 
 async function parseJson(request: Request) {
@@ -200,15 +222,64 @@ function validateTopic(body: unknown) {
 }
 
 function parseModelOutput(outputText: string) {
-  try {
-    const value = JSON.parse(outputText) as unknown;
-    return validateModelQuiz(value);
-  } catch {
+  const trimmedOutput = outputText.trim();
+
+  if (!trimmedOutput) {
     return {
       ok: false as const,
-      errors: ["Model response was not valid JSON."],
+      errors: ["Model response was empty."],
     };
   }
+
+  const primaryParse = safeParseJson(trimmedOutput);
+
+  if (primaryParse.ok) {
+    return validateModelQuiz(primaryParse.value);
+  }
+
+  const extractedJson = extractJsonObject(trimmedOutput);
+
+  if (extractedJson && extractedJson !== trimmedOutput) {
+    const fallbackParse = safeParseJson(extractedJson);
+
+    if (fallbackParse.ok) {
+      return validateModelQuiz(fallbackParse.value);
+    }
+  }
+
+  return {
+    ok: false as const,
+    errors: [
+      "Model response was not valid JSON.",
+      primaryParse.error,
+      "The model may have returned prose, Markdown, or malformed JSON.",
+    ],
+  };
+}
+
+function safeParseJson(text: string) {
+  try {
+    return {
+      ok: true as const,
+      value: JSON.parse(text) as unknown,
+    };
+  } catch (error) {
+    return {
+      ok: false as const,
+      error: error instanceof Error ? error.message : "Unknown JSON error.",
+    };
+  }
+}
+
+function extractJsonObject(text: string) {
+  const start = text.indexOf("{");
+  const end = text.lastIndexOf("}");
+
+  if (start === -1 || end === -1 || end <= start) {
+    return null;
+  }
+
+  return text.slice(start, end + 1);
 }
 
 function validateModelQuiz(value: unknown) {
