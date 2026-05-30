@@ -9,6 +9,7 @@ export type QuizAnswer = {
   label: "A" | "B" | "C" | "D";
   text: string;
   isCorrect: boolean;
+  wrongExplanation?: string;
 };
 
 export type QuizQuestion = {
