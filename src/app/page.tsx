@@ -1,11 +1,9 @@
-const sampleAnswers = [
-  "A sandwich with excellent PR",
-  "Three committees in a trench coat",
-  "Whatever was left in the group chat",
-  "The moon, but legally distinct",
-];
+import { mockGameState } from "@/data/mockQuiz";
 
 export default function Home() {
+  const currentQuestion =
+    mockGameState.questions[mockGameState.currentQuestionIndex];
+
   return (
     <main className="min-h-screen bg-[#f7f3ea] text-neutral-950">
       <section className="mx-auto flex min-h-screen w-full max-w-6xl flex-col px-5 py-6 sm:px-8 lg:px-10">
@@ -61,34 +59,37 @@ export default function Home() {
             <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
               <div>
                 <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#2f6f73]">
-                  Placeholder Quiz
+                  {mockGameState.topic.name} Quiz
                 </p>
                 <h3 className="mt-2 text-2xl font-black">
-                  What is the best description of gravity?
+                  {currentQuestion.prompt}
                 </h3>
               </div>
               <span className="rounded-full bg-[#f0c14b] px-3 py-1 text-sm font-black text-neutral-950">
-                Draft
+                Mock
               </span>
             </div>
 
             <div className="mt-5 space-y-3">
-              {sampleAnswers.map((answer, index) => (
-                <div
-                  className="flex items-center gap-3 rounded-md border border-neutral-950/10 bg-[#fbfaf6] p-4"
-                  key={answer}
+              {currentQuestion.answers.map((answer) => (
+                <button
+                  className="flex min-h-16 w-full items-center gap-3 rounded-md border border-neutral-950/10 bg-[#fbfaf6] p-4 text-left transition hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/15"
+                  key={answer.id}
+                  type="button"
                 >
                   <span className="grid size-8 shrink-0 place-items-center rounded-full bg-[#c24b32] text-sm font-black text-white">
-                    {String.fromCharCode(65 + index)}
+                    {answer.label}
                   </span>
-                  <p className="font-semibold text-neutral-800">{answer}</p>
-                </div>
+                  <span className="font-semibold text-neutral-800">
+                    {answer.text}
+                  </span>
+                </button>
               ))}
             </div>
 
             <div className="mt-6 rounded-md bg-[#e2f0ef] p-4 text-sm font-medium leading-6 text-[#25585b]">
-              Quiz generation is intentionally paused for now. This card shows
-              the structure the app will fill in once AI logic is added.
+              Quiz generation is intentionally paused for now. This card is
+              rendering from a typed mock game state for local testing.
             </div>
           </aside>
         </div>
