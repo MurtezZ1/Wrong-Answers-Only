@@ -1,39 +1,41 @@
 # Wrong Answers Only
 
-Wrong Answers Only is a playful AI-powered trivia app where every visible
-multiple-choice option is intentionally wrong. The app rewards participation,
-streaks, and curiosity instead of correctness.
+## Project Overview
 
-## Live Demo
+Wrong Answers Only is an AI-powered trivia game where every visible answer is
+plausible, witty, and intentionally wrong. The player chooses a topic, the app
+generates a trivia-style question, and the answer choices are all incorrect by
+design. The score rewards participation and streak continuation instead of
+traditional correctness.
 
-Coming soon: `https://your-live-demo-url.example`
+GitHub Repository URL: https://github.com/MurtezZ1/Wrong-Answers-Only.git
 
-## GitHub Repo
-
-Coming soon: `https://github.com/your-username/wrong-answers-only`
+Live Replit URL: `TODO: add live Replit URL`
 
 ## Features
 
-- Topic selection with preset topics and custom topic input
-- AI-generated trivia questions through a Next.js API route
-- Four plausible but factually wrong answer choices
-- Hidden witty explanations for why selected answers are wrong
-- No correct answer shown anywhere in the UI
-- Loading skeleton, empty state, retry state, and friendly API errors
-- Local score tracking with `localStorage`
-- Participation-based stats: answered count, current streak, best streak, and topic count
-- Responsive, polished UI built with Tailwind CSS
+- Preset topic buttons: History, Science, Movies, Sports, Programming, Random
+- Custom topic input
+- Gemini-backed quiz generation through a server-only Next.js API route
+- One generated question with four plausible-but-wrong answer choices
+- Witty explanation revealed after selecting an answer
+- No correct answer rendered in the UI
+- Loading skeleton, empty state, friendly error state, and retry actions
+- Participation score, current streak, best streak, and topic count
+- `localStorage` persistence for score and streak data
+- Responsive, polished interface with accessible labels and focus states
+- Replit-ready configuration
 
 ## Tech Stack
 
 - Next.js 15 App Router
+- React 19
 - TypeScript
 - Tailwind CSS
-- React 19
-- Google Gemini API
-- Local browser storage for lightweight score persistence
+- OpenRouter API with an OpenAI-compatible chat endpoint
+- Browser `localStorage`
 
-## Setup
+## Setup Instructions
 
 Install dependencies:
 
@@ -41,12 +43,16 @@ Install dependencies:
 npm install
 ```
 
-Create `.env.local` manually in the project root.
+Create a local env file:
 
-Add your Google AI Studio API key:
+```bash
+cp .env.example .env.local
+```
+
+Add your Google AI Studio key to `.env.local`:
 
 ```env
-GEMINI_API_KEY=your_google_ai_studio_api_key_here
+OPENROUTER_API_KEY=your_key_here
 ```
 
 Run the development server:
@@ -55,13 +61,13 @@ Run the development server:
 npm run dev
 ```
 
-Open the app:
+Open:
 
 ```text
 http://localhost:3000
 ```
 
-Run checks:
+Run quality checks:
 
 ```bash
 npm run lint
@@ -72,26 +78,62 @@ npm run build
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `GEMINI_API_KEY` | Yes | Used by `/api/generate` to call the Google Gemini API. |
+| `OPENROUTER_API_KEY` | Yes | Server-side key used by `/api/generate` to call OpenRouter. |
 
-The key is only used server-side in the API route and should never be exposed
-to the browser.
+The key is read only in the server route. It is not exposed to client-side
+React components.
 
-## No-Correct-Answer Rule
+## Deployment
 
-The app enforces the no-correct-answer rule in several layers:
+### Replit
 
-1. The system prompt tells the model never to include the correct answer, a
-   synonym of the correct answer, a partly correct answer, or
-   all-of-the-above/none-of-the-above options.
+This project includes `.replit`.
+
+The Replit run command is:
+
+```bash
+npm run dev:replit
+```
+
+That script starts Next.js on `0.0.0.0:3000`, allowing Replit to expose the app
+on its public URL.
+
+Steps:
+
+1. Create a new Replit project.
+2. Import the GitHub repository.
+3. Add a Replit Secret named `OPENROUTER_API_KEY`.
+4. Press **Run**.
+5. Open the public Replit URL.
+
+For Replit deployments, `.replit` runs:
+
+```bash
+npm run build && npm run start:replit
+```
+
+### Local Production Check
+
+```bash
+npm run build
+npm run start
+```
+
+## No-Correct-Answer Enforcement
+
+The no-correct-answer rule is enforced in several layers:
+
+1. The system prompt explicitly forbids correct, partly correct, synonym, and
+   all-of-the-above/none-of-the-above answers.
 2. The user prompt requires a real trivia question with a real correct answer,
-   but explicitly forbids showing that answer anywhere.
-3. The API requests structured JSON from Gemini using a schema with exactly four answer objects.
-4. The server transforms every returned answer into `isCorrect: false`.
-5. The frontend never renders a correct answer field. It only displays the
-   wrong answer text and the selected answer's hidden explanation.
+   but forbids revealing that correct answer anywhere.
+3. OpenRouter is asked for structured JSON matching a schema with exactly four
+   answer objects.
+4. The server validates the response shape before returning it.
+5. The server maps every answer to `isCorrect: false`.
+6. The frontend never renders or stores a correct-answer field.
 
-## AI Prompts Used
+## Prompts Used
 
 ### System Prompt
 
@@ -150,7 +192,7 @@ Success response:
 }
 ```
 
-Error responses use a consistent shape:
+Error response:
 
 ```json
 {
@@ -162,74 +204,21 @@ Error responses use a consistent shape:
 }
 ```
 
-## What I Would Improve With More Time
+## Future Improvements
 
-- Add multi-question quiz sessions instead of one question at a time
-- Add a real "next question" generation flow
-- Add answer explanation animations and sound-light feedback
-- Add topic history and recent quiz sessions
-- Add automated tests for the API route and parsing fallback
-- Add moderation or stricter topic filtering for public deployment
-- Add shareable results cards
+- Add true multi-question sessions
+- Generate the next question automatically after answering
+- Add an optional second-pass verifier to reduce the chance of accidental
+  correct answers
+- Add unit tests for the API route and JSON parsing fallback
+- Add rate limiting and topic moderation for public deployment
+- Add shareable result cards
+- Add a reset-stats button
 
 ## What Surprised Me
 
-The most interesting design challenge was making a quiz game where correctness
-is deliberately absent. The scoring had to reward participation and streaks
-instead of right answers, and the prompt needed to make the model generate a
-real trivia question while hiding the real answer completely.
+The hardest design challenge was making a trivia game where correctness is
+intentionally absent. The prompt needs to create a question with a real answer
+while hiding that answer, and the scoring model has to reward participation
+rather than correctness.
 
-## Deployment on Replit
-
-This project includes a `.replit` file for Replit. It runs:
-
-```bash
-npm run dev:replit
-```
-
-That script starts Next.js on `0.0.0.0:3000`, which allows Replit to expose the
-app on the public Replit URL.
-
-1. Create a new Replit project.
-2. Import the GitHub repository or upload the project files.
-3. Open **Tools > Secrets** and add:
-
-```text
-GEMINI_API_KEY=your_google_ai_studio_api_key_here
-```
-
-Do not put the API key directly in the source code or README.
-
-4. Install dependencies:
-
-```bash
-npm install
-```
-
-5. Press **Run**. Replit will use `.replit` and start the app with:
-
-```bash
-npm run dev:replit
-```
-
-6. Open the generated public Replit URL.
-
-For a production-style Replit deployment, the `.replit` deployment command runs:
-
-```bash
-npm run build
-npm run start:replit
-```
-
-Local development still uses:
-
-```bash
-npm run dev
-```
-
-## Notes
-
-- The app intentionally does not reveal correct answers.
-- `wrongExplanation` is shown only after a user selects an answer.
-- Scores are local to the user's browser through `localStorage`.
-- Missing or invalid API responses are handled with friendly retry states.

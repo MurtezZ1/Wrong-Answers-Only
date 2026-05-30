@@ -1,4 +1,3 @@
-import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import type {
   GenerateQuizErrorResponse,
@@ -12,6 +11,14 @@ export const runtime = "nodejs";
 const answerLabels = ["A", "B", "C", "D"] as const;
 const topicMinLength = 2;
 const topicMaxLength = 80;
+const maxGenerationAttempts = 3;
+const openRouterApiUrl = "https://openrouter.ai/api/v1/chat/completions";
+const openRouterModels = [
+  "deepseek/deepseek-v4-flash:free",
+  "google/gemma-4-26b-a4b-it:free",
+  "nvidia/nemotron-3-nano-30b-a3b:free",
+  "moonshotai/kimi-k2.6:free",
+] as const;
 
 const systemPrompt = [
   "You are the quiz writer for Wrong Answers Only.",
@@ -31,6 +38,12 @@ type ModelQuizAnswer = {
 type ModelQuizResponse = {
   question: string;
   answers: ModelQuizAnswer[];
+};
+
+type ValidationResponse = {
+  hasPotentiallyCorrectAnswer: boolean;
+  riskyLabels: QuizAnswer["label"][];
+  reason: string;
 };
 
 const responseSchema = {
@@ -72,6 +85,57 @@ const responseSchema = {
   },
 } as const;
 
+const validationSchema = {
+  type: "object",
+  additionalProperties: false,
+  required: ["hasPotentiallyCorrectAnswer", "riskyLabels", "reason"],
+  properties: {
+    hasPotentiallyCorrectAnswer: {
+      type: "boolean",
+    },
+    riskyLabels: {
+      type: "array",
+      items: {
+        type: "string",
+        enum: answerLabels,
+      },
+    },
+    reason: {
+      type: "string",
+    },
+  },
+} as const;
+
+const fallbackQuiz: ModelQuizResponse = {
+  question: "Which of these is a real programming language keyword in JavaScript?",
+  answers: [
+    {
+      label: "A",
+      text: "sandwich",
+      wrongExplanation:
+        "JavaScript has many quirks, but lunch has not become a reserved word yet.",
+    },
+    {
+      label: "B",
+      text: "moonwalk",
+      wrongExplanation:
+        "Great for stage entrances, not recognized by the JavaScript parser.",
+    },
+    {
+      label: "C",
+      text: "accordion",
+      wrongExplanation:
+        "Useful in UI design, but JavaScript will not compile a musical instrument.",
+    },
+    {
+      label: "D",
+      text: "velociraptor",
+      wrongExplanation:
+        "Fast and memorable, but still not a keyword in the language.",
+    },
+  ],
+};
+
 export async function POST(request: Request) {
   const body = await parseJson(request);
 
@@ -90,43 +154,24 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY;
+  const apiKey = process.env.OPENROUTER_API_KEY;
 
   if (!apiKey) {
     return errorResponse(
       "missing_api_key",
-      "Gemini generation is not set up yet. Add GEMINI_API_KEY to .env.local, then restart the dev server.",
+      "OpenRouter generation is not set up yet. Add OPENROUTER_API_KEY to .env.local, then restart the dev server.",
       503,
     );
   }
 
-  const client = new GoogleGenAI({ apiKey });
-
   try {
-    const userPrompt = buildUserPrompt(topicResult.topic);
-
-    const response = await client.models.generateContent({
-      model: "gemini-2.5-flash",
-      contents: `${systemPrompt}\n\n${userPrompt}`,
-      config: {
-        responseMimeType: "application/json",
-        responseJsonSchema: responseSchema,
-      },
-    });
-
-    const parsed = parseModelOutput(response.text ?? "");
-
-    if (!parsed.ok) {
-      return errorResponse(
-        "invalid_generation",
-        "The generated quiz did not match the expected format.",
-        502,
-        parsed.errors,
-      );
-    }
+    const generatedQuiz = await generateValidatedQuiz(
+      apiKey,
+      topicResult.topic,
+    );
 
     return NextResponse.json<GenerateQuizResponse>({
-      quiz: toQuiz(topicResult.topic, parsed.value),
+      quiz: toQuiz(topicResult.topic, generatedQuiz),
     });
   } catch (error) {
     return errorResponse(
@@ -155,6 +200,163 @@ function buildUserPrompt(topic: string) {
     "All four answers must be plausible, specific, and factually wrong.",
     "For each answer, write a short hidden wrongExplanation that is witty and explains why the answer is wrong.",
     'Return JSON only in this exact shape: {"question":"...","answers":[{"label":"A","text":"...","wrongExplanation":"..."},{"label":"B","text":"...","wrongExplanation":"..."},{"label":"C","text":"...","wrongExplanation":"..."},{"label":"D","text":"...","wrongExplanation":"..."}]}',
+  ].join("\n");
+}
+
+async function generateValidatedQuiz(apiKey: string, topic: string) {
+  for (let attempt = 1; attempt <= maxGenerationAttempts; attempt += 1) {
+    const generatedQuiz = await generateQuiz(apiKey, topic);
+    const validation = await validateWrongAnswers(apiKey, generatedQuiz);
+
+    // The first LLM call creates the quiz. This second LLM call acts as a
+    // reviewer and tries to catch any option that might actually answer the
+    // question. If the reviewer flags a risky option, the whole question is
+    // discarded and regenerated so the user never sees a potentially correct
+    // answer.
+    if (!validation.hasPotentiallyCorrectAnswer) {
+      return generatedQuiz;
+    }
+  }
+
+  // If every generated attempt is risky, return a hand-authored fallback whose
+  // options are intentionally absurd and known to be wrong. This keeps the app
+  // usable while still preserving the no-correct-answer rule.
+  return fallbackQuiz;
+}
+
+async function generateQuiz(apiKey: string, topic: string) {
+  const userPrompt = buildUserPrompt(topic);
+
+  const outputText = await callOpenRouter(apiKey, [
+    {
+      role: "system",
+      content: systemPrompt,
+    },
+    {
+      role: "user",
+      content: userPrompt,
+    },
+  ], "wrong_answers_only_quiz", responseSchema);
+
+  const parsed = parseModelOutput(outputText);
+
+  if (!parsed.ok) {
+    throw new Error(parsed.errors.join(" "));
+  }
+
+  return parsed.value;
+}
+
+async function validateWrongAnswers(
+  apiKey: string,
+  generatedQuiz: ModelQuizResponse,
+) {
+  const outputText = await callOpenRouter(apiKey, [
+    {
+      role: "system",
+      content:
+        "You are a strict fact-checking reviewer. Return JSON only and follow the schema exactly.",
+    },
+    {
+      role: "user",
+      content: buildValidationPrompt(generatedQuiz),
+    },
+  ], "wrong_answers_only_validation", validationSchema);
+
+  const parsed = parseValidationOutput(outputText);
+
+  if (!parsed.ok) {
+    return {
+      hasPotentiallyCorrectAnswer: true,
+      riskyLabels: [...answerLabels],
+      reason:
+        "Validation response could not be parsed, so the generated quiz was treated as unsafe.",
+    } satisfies ValidationResponse;
+  }
+
+  return parsed.value;
+}
+
+async function callOpenRouter(
+  apiKey: string,
+  messages: Array<{ role: "system" | "user"; content: string }>,
+  schemaName: string,
+  schema: object,
+) {
+  const errors: string[] = [];
+
+  for (const model of openRouterModels) {
+    const response = await fetch(openRouterApiUrl, {
+      method: "POST",
+      headers: {
+        Authorization: `Bearer ${apiKey}`,
+        "Content-Type": "application/json",
+        "HTTP-Referer": "http://localhost:3000",
+        "X-Title": "Wrong Answers Only",
+      },
+      body: JSON.stringify({
+        model,
+        messages,
+        response_format: {
+          type: "json_schema",
+          json_schema: {
+            name: schemaName,
+            strict: true,
+            schema,
+          },
+        },
+      }),
+    });
+
+    if (!response.ok) {
+      errors.push(await response.text());
+      continue;
+    }
+
+    return readOpenRouterContent((await response.json()) as unknown);
+  }
+
+  throw new Error(`OpenRouter request failed: ${errors.join(" | ")}`);
+}
+
+function readOpenRouterContent(data: unknown) {
+  if (!isRecord(data)) {
+    throw new Error("OpenRouter response was not an object.");
+  }
+
+  const choices = data.choices;
+
+  if (!Array.isArray(choices) || choices.length === 0) {
+    throw new Error("OpenRouter response did not include choices.");
+  }
+
+  const firstChoice = choices[0] as unknown;
+
+  if (!isRecord(firstChoice) || !isRecord(firstChoice.message)) {
+    throw new Error("OpenRouter response did not include a message.");
+  }
+
+  const content = firstChoice.message.content;
+
+  if (typeof content !== "string") {
+    throw new Error("OpenRouter response content was not text.");
+  }
+
+  return content;
+}
+
+function buildValidationPrompt(generatedQuiz: ModelQuizResponse) {
+  return [
+    "You are a strict fact-checking reviewer for a game called Wrong Answers Only.",
+    "Review the trivia question and all four visible answer options.",
+    "Mark hasPotentiallyCorrectAnswer true if any option is correct, partly correct, a synonym/paraphrase of the correct answer, or could reasonably be accepted as correct.",
+    "Mark it false only when every option is clearly factually wrong.",
+    "Return strict JSON only.",
+    "",
+    `Question: ${generatedQuiz.question}`,
+    ...generatedQuiz.answers.map(
+      (answer) => `${answer.label}. ${answer.text}`,
+    ),
   ].join("\n");
 }
 
@@ -244,6 +446,38 @@ function parseModelOutput(outputText: string) {
   };
 }
 
+function parseValidationOutput(outputText: string) {
+  const trimmedOutput = outputText.trim();
+
+  if (!trimmedOutput) {
+    return {
+      ok: false as const,
+      errors: ["Validation response was empty."],
+    };
+  }
+
+  const primaryParse = safeParseJson(trimmedOutput);
+
+  if (primaryParse.ok) {
+    return validateValidationResponse(primaryParse.value);
+  }
+
+  const extractedJson = extractJsonObject(trimmedOutput);
+
+  if (extractedJson && extractedJson !== trimmedOutput) {
+    const fallbackParse = safeParseJson(extractedJson);
+
+    if (fallbackParse.ok) {
+      return validateValidationResponse(fallbackParse.value);
+    }
+  }
+
+  return {
+    ok: false as const,
+    errors: ["Validation response was not valid JSON.", primaryParse.error],
+  };
+}
+
 function safeParseJson(text: string) {
   try {
     return {
@@ -328,6 +562,53 @@ function validateModelQuiz(value: unknown) {
   return {
     ok: true as const,
     value: value as ModelQuizResponse,
+  };
+}
+
+function validateValidationResponse(value: unknown) {
+  const errors: string[] = [];
+
+  if (!isRecord(value)) {
+    return {
+      ok: false as const,
+      errors: ["Validation response must be an object."],
+    };
+  }
+
+  if (typeof value.hasPotentiallyCorrectAnswer !== "boolean") {
+    errors.push("hasPotentiallyCorrectAnswer must be a boolean.");
+  }
+
+  if (!Array.isArray(value.riskyLabels)) {
+    errors.push("riskyLabels must be an array.");
+  } else {
+    value.riskyLabels.forEach((label, index) => {
+      if (!isAnswerLabel(label)) {
+        errors.push(`riskyLabels item ${index + 1} must be A, B, C, or D.`);
+      }
+    });
+  }
+
+  if (typeof value.reason !== "string" || !value.reason.trim()) {
+    errors.push("reason must be a non-empty string.");
+  }
+
+  if (errors.length > 0) {
+    return { ok: false as const, errors };
+  }
+
+  const riskyLabels = Array.isArray(value.riskyLabels)
+    ? value.riskyLabels.filter(isAnswerLabel)
+    : [];
+  const reason = typeof value.reason === "string" ? value.reason.trim() : "";
+
+  return {
+    ok: true as const,
+    value: {
+      hasPotentiallyCorrectAnswer: Boolean(value.hasPotentiallyCorrectAnswer),
+      riskyLabels,
+      reason,
+    },
   };
 }
 

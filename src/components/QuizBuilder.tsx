@@ -396,7 +396,7 @@ function ApiErrorState({
         </p>
         <h3 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
           {isMissingApiKey
-            ? "Connect Gemini to generate quizzes."
+            ? "Connect OpenRouter to generate quizzes."
             : "The quiz refused to be wrong on command."}
         </h3>
         <p className="mt-4 text-base font-semibold leading-7 text-[#8b2f20]">
@@ -404,11 +404,10 @@ function ApiErrorState({
         </p>
         {isMissingApiKey ? (
           <div className="mt-4 rounded-md border border-[#c24b32]/15 bg-white/65 p-4 text-sm font-semibold leading-6 text-[#8b2f20]">
-            <p>Create `C:\Users\ERJON\Desktop\Wrong-Answers-Only\.env.local`:</p>
-            <code className="mt-2 block rounded-md bg-neutral-950 p-3 text-white">
-              GEMINI_API_KEY=your_google_ai_studio_api_key_here
-            </code>
-            <p className="mt-3">Then restart the dev server and try again.</p>
+            <p>
+              Add your OpenRouter key to `.env.local` as `OPENROUTER_API_KEY`, then
+              restart the dev server and try again.
+            </p>
           </div>
         ) : null}
         {canRetry ? (
