@@ -134,31 +134,42 @@ export function QuizBuilder() {
   return (
     <>
       <div className="w-full max-w-2xl">
-        <p className="text-sm font-semibold uppercase tracking-[0.18em] text-[#c24b32]">
+        <p className="text-sm font-semibold uppercase text-[#c24b32]">
           Make trivia confidently unserious
         </p>
-        <h2 className="mt-5 text-5xl font-black leading-[1.02] sm:text-6xl lg:text-7xl">
+        <h2 className="mt-4 text-4xl font-black leading-[1.04] sm:mt-5 sm:text-6xl lg:text-7xl">
           Build a quiz where every answer is suspicious.
         </h2>
-        <p className="mt-6 max-w-xl text-lg leading-8 text-neutral-700">
+        <p className="mt-5 max-w-xl text-base leading-7 text-neutral-700 sm:mt-6 sm:text-lg sm:leading-8">
           Pick a topic, then generate a playful multiple-choice quiz where every
           visible answer is intentionally wrong.
         </p>
 
-        <div className="mt-8 w-full max-w-xl rounded-lg border border-neutral-950/15 bg-white p-4 shadow-[0_18px_45px_rgba(23,23,23,0.08)]">
-          <div className="flex items-center justify-between gap-4">
+        <section
+          aria-labelledby="topic-picker-heading"
+          className="mt-7 w-full max-w-xl rounded-lg border border-neutral-950/15 bg-white p-4 shadow-[0_18px_45px_rgba(23,23,23,0.08)] sm:mt-8 sm:p-5"
+        >
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <label
-              className="text-sm font-black uppercase tracking-[0.16em] text-neutral-700"
+              className="text-sm font-black uppercase text-neutral-700"
               htmlFor="custom-topic"
+              id="topic-picker-heading"
             >
               Choose Topic
             </label>
-            <span className="rounded-full bg-[#e2f0ef] px-3 py-1 text-xs font-black text-[#25585b]">
+            <span
+              aria-live="polite"
+              className="w-fit rounded-full bg-[#e2f0ef] px-3 py-1 text-xs font-black text-[#25585b]"
+            >
               {selectedTopic ?? "None selected"}
             </span>
           </div>
 
-          <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
+          <div
+            aria-label="Preset topics"
+            className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3"
+            role="group"
+          >
             {presetTopics.map((topic) => {
               const isSelected = selectedTopicId === topic.id;
 
@@ -166,10 +177,10 @@ export function QuizBuilder() {
                 <button
                   aria-pressed={isSelected}
                   className={[
-                    "min-h-12 rounded-md border px-3 text-sm font-black transition focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/15 disabled:cursor-not-allowed disabled:opacity-60",
+                    "min-h-12 rounded-md border px-3 text-sm font-black transition duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/20 disabled:cursor-not-allowed disabled:opacity-60",
                     isSelected
-                      ? "border-neutral-950 bg-neutral-950 text-white shadow-[0_10px_24px_rgba(23,23,23,0.16)]"
-                      : "border-neutral-950/10 bg-[#fbfaf6] text-neutral-800 hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa]",
+                      ? "border-neutral-950 bg-neutral-950 text-white shadow-[0_10px_24px_rgba(23,23,23,0.16)] hover:bg-neutral-800"
+                      : "border-neutral-950/10 bg-[#fbfaf6] text-neutral-800 hover:-translate-y-0.5 hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa] hover:shadow-[0_10px_20px_rgba(47,111,115,0.08)]",
                   ].join(" ")}
                   disabled={isLoading}
                   key={topic.id}
@@ -185,6 +196,7 @@ export function QuizBuilder() {
 
           <div className="mt-4 flex flex-col gap-3 sm:flex-row">
             <input
+              aria-describedby={!selectedTopic ? "topic-warning" : undefined}
               className={[
                 "min-h-12 flex-1 rounded-md border bg-[#fbfaf6] px-4 text-base outline-none transition focus:border-[#2f6f73] focus:ring-4 focus:ring-[#2f6f73]/15 disabled:cursor-not-allowed disabled:opacity-60",
                 selectedTopicId === customTopicId
@@ -204,7 +216,8 @@ export function QuizBuilder() {
               value={customTopic}
             />
             <button
-              className="min-h-12 rounded-md bg-neutral-950 px-6 text-base font-bold text-white transition hover:bg-[#2f6f73] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
+              aria-label={isLoading ? "Generating quiz" : "Generate quiz"}
+              className="min-h-12 rounded-md bg-neutral-950 px-6 text-base font-bold text-white transition duration-200 ease-out hover:-translate-y-0.5 hover:bg-[#2f6f73] hover:shadow-[0_12px_24px_rgba(47,111,115,0.22)] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25 disabled:translate-y-0 disabled:cursor-not-allowed disabled:bg-neutral-300 disabled:text-neutral-500 disabled:shadow-none"
               disabled={!canGenerate}
               onClick={handleGenerate}
               type="button"
@@ -214,10 +227,15 @@ export function QuizBuilder() {
           </div>
 
           {errorMessage ? (
-            <div className="mt-4 rounded-md border border-[#c24b32]/25 bg-[#fff4f1] p-3 text-sm font-semibold leading-6 text-[#8b2f20]">
+            <div
+              aria-live="polite"
+              className="mt-4 rounded-md border border-[#c24b32]/25 bg-[#fff4f1] p-3 text-sm font-semibold leading-6 text-[#8b2f20]"
+              role="status"
+            >
               <p>{errorMessage}</p>
               {selectedTopic ? (
                 <button
+                  aria-label="Retry quiz generation"
                   className="mt-3 min-h-10 rounded-md bg-[#8b2f20] px-4 text-sm font-black text-white transition hover:bg-[#6f2418] focus:outline-none focus:ring-4 focus:ring-[#c24b32]/20 disabled:cursor-not-allowed disabled:opacity-60"
                   disabled={isLoading}
                   onClick={handleGenerate}
@@ -228,24 +246,31 @@ export function QuizBuilder() {
               ) : null}
             </div>
           ) : !selectedTopic ? (
-            <p className="mt-4 rounded-md border border-[#f0c14b]/35 bg-[#fff9e8] p-3 text-sm font-semibold leading-6 text-[#7a5a05]">
+            <p
+              className="mt-4 rounded-md border border-[#f0c14b]/35 bg-[#fff9e8] p-3 text-sm font-semibold leading-6 text-[#7a5a05]"
+              id="topic-warning"
+            >
               No topic selected yet. Pick a preset or type your own to unlock
               Generate.
             </p>
           ) : null}
-        </div>
+        </section>
 
-        <div className="mt-4 grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4">
+        <section
+          aria-label="Game stats"
+          className="mt-4 grid w-full max-w-xl grid-cols-2 gap-2 sm:grid-cols-4"
+        >
           <StatCard label="Answered" value={stats.totalAnswered} />
           <StatCard label="Streak" value={stats.currentStreak} />
           <StatCard label="Best" value={stats.bestStreak} />
           <StatCard label="Topics" value={selectedTopicCount} />
-        </div>
+        </section>
       </div>
 
       <aside
+        aria-label="Quiz panel"
         aria-busy={isLoading}
-        className="min-h-[560px] rounded-lg border border-neutral-950/15 bg-white p-5 shadow-[0_18px_45px_rgba(23,23,23,0.08)] transition sm:p-6"
+        className="min-h-[520px] rounded-lg border border-neutral-950/15 bg-white p-4 shadow-[0_18px_45px_rgba(23,23,23,0.08)] transition sm:min-h-[560px] sm:p-6"
       >
         {isLoading ? (
           <LoadingQuizCard />
@@ -257,7 +282,6 @@ export function QuizBuilder() {
           />
         ) : question && questionTopic ? (
           <GeneratedQuizCard
-            isLoading={isLoading}
             onAnswerSelect={handleAnswerSelect}
             onNextQuestion={() => setSelectedAnswerId(null)}
             question={question}
@@ -275,11 +299,11 @@ export function QuizBuilder() {
 function EmptyQuizState({ hasSelectedTopic }: { hasSelectedTopic: boolean }) {
   return (
     <div className="flex min-h-[500px] flex-col justify-center">
-      <div className="rounded-lg border border-dashed border-neutral-950/20 bg-[#fbfaf6] p-6">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#2f6f73]">
+      <div className="rounded-lg border border-dashed border-neutral-950/20 bg-[#fbfaf6] p-5 sm:p-6">
+        <p className="text-sm font-black uppercase text-[#2f6f73]">
           Ready When You Are
         </p>
-        <h3 className="mt-3 text-3xl font-black leading-tight">
+        <h3 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
           {hasSelectedTopic
             ? "Generate your first suspicious quiz."
             : "Pick a topic to start the nonsense."}
@@ -301,7 +325,7 @@ function EmptyQuizState({ hasSelectedTopic }: { hasSelectedTopic: boolean }) {
 
 function LoadingQuizCard() {
   return (
-    <div className="animate-pulse">
+    <div aria-label="Generating quiz" className="animate-pulse" role="status">
       <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
         <div className="w-full">
           <div className="h-4 w-32 rounded-full bg-[#e2f0ef]" />
@@ -343,11 +367,15 @@ function ApiErrorState({
 }) {
   return (
     <div className="flex min-h-[500px] flex-col justify-center">
-      <div className="rounded-lg border border-[#c24b32]/25 bg-[#fff4f1] p-6">
-        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#c24b32]">
+      <div
+        aria-live="polite"
+        className="rounded-lg border border-[#c24b32]/25 bg-[#fff4f1] p-5 sm:p-6"
+        role="alert"
+      >
+        <p className="text-sm font-black uppercase text-[#c24b32]">
           Generation Stumbled
         </p>
-        <h3 className="mt-3 text-3xl font-black leading-tight">
+        <h3 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
           The quiz refused to be wrong on command.
         </h3>
         <p className="mt-4 text-base font-semibold leading-7 text-[#8b2f20]">
@@ -355,7 +383,8 @@ function ApiErrorState({
         </p>
         {canRetry ? (
           <button
-            className="mt-5 min-h-12 rounded-md bg-[#8b2f20] px-5 text-base font-black text-white transition hover:bg-[#6f2418] focus:outline-none focus:ring-4 focus:ring-[#c24b32]/20"
+            aria-label="Retry quiz generation"
+            className="mt-5 min-h-12 rounded-md bg-[#8b2f20] px-5 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-[#6f2418] hover:shadow-[0_12px_24px_rgba(139,47,32,0.18)] focus:outline-none focus:ring-4 focus:ring-[#c24b32]/20"
             onClick={onRetry}
             type="button"
           >
@@ -368,14 +397,12 @@ function ApiErrorState({
 }
 
 function GeneratedQuizCard({
-  isLoading,
   onAnswerSelect,
   onNextQuestion,
   question,
   questionTopic,
   selectedAnswerId,
 }: {
-  isLoading: boolean;
   onAnswerSelect: (answerId: string) => void;
   onNextQuestion: () => void;
   question: QuizQuestion;
@@ -386,12 +413,17 @@ function GeneratedQuizCard({
     <>
       <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
         <div>
-          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#2f6f73]">
+          <p className="text-sm font-bold uppercase text-[#2f6f73]">
             {questionTopic.name} Quiz
           </p>
-          <h3 className="mt-2 text-2xl font-black">{question.prompt}</h3>
+          <h3 className="mt-2 text-xl font-black leading-tight sm:text-2xl">
+            {question.prompt}
+          </h3>
         </div>
-        <span className="rounded-full bg-[#f0c14b] px-3 py-1 text-sm font-black text-neutral-950">
+        <span
+          aria-live="polite"
+          className="shrink-0 rounded-full bg-[#f0c14b] px-3 py-1 text-sm font-black text-neutral-950"
+        >
           {selectedAnswerId ? "Nice Try" : "Wrong"}
         </span>
       </div>
@@ -405,14 +437,14 @@ function GeneratedQuizCard({
             <div className="space-y-2" key={answer.id}>
               <button
                 aria-pressed={isSelected}
+                aria-label={`Select answer ${answer.label}: ${answer.text}`}
                 className={[
-                  "flex min-h-16 w-full items-center gap-3 rounded-md border p-4 text-left transition duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/15 disabled:cursor-wait disabled:opacity-65",
+                  "flex min-h-16 w-full items-center gap-3 rounded-md border p-4 text-left transition duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/20",
                   isSelected
                     ? "border-[#2f6f73] bg-[#e2f0ef] shadow-[0_12px_28px_rgba(47,111,115,0.16)]"
-                    : "border-neutral-950/10 bg-[#fbfaf6] hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa]",
+                    : "border-neutral-950/10 bg-[#fbfaf6] hover:-translate-y-0.5 hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa] hover:shadow-[0_10px_20px_rgba(47,111,115,0.08)]",
                   isDimmed ? "opacity-55" : "opacity-100",
                 ].join(" ")}
-                disabled={isLoading}
                 onClick={() => onAnswerSelect(answer.id)}
                 type="button"
               >
@@ -442,7 +474,8 @@ function GeneratedQuizCard({
 
       {selectedAnswerId ? (
         <button
-          className="mt-6 min-h-12 w-full rounded-md bg-neutral-950 px-5 text-base font-black text-white transition hover:bg-[#2f6f73] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25"
+          aria-label="Clear current answer selection"
+          className="mt-6 min-h-12 w-full rounded-md bg-neutral-950 px-5 text-base font-black text-white transition hover:-translate-y-0.5 hover:bg-[#2f6f73] hover:shadow-[0_12px_24px_rgba(47,111,115,0.22)] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25"
           onClick={onNextQuestion}
           type="button"
         >
@@ -460,8 +493,8 @@ function GeneratedQuizCard({
 
 function StatCard({ label, value }: { label: string; value: number }) {
   return (
-    <div className="rounded-md border border-neutral-950/10 bg-white p-3 shadow-[0_10px_24px_rgba(23,23,23,0.05)]">
-      <p className="text-xs font-black uppercase tracking-[0.14em] text-neutral-500">
+    <div className="rounded-md border border-neutral-950/10 bg-white p-3 shadow-[0_10px_24px_rgba(23,23,23,0.05)] sm:p-4">
+      <p className="text-xs font-black uppercase text-neutral-500">
         {label}
       </p>
       <p className="mt-1 text-2xl font-black text-neutral-950">{value}</p>
