@@ -1,7 +1,6 @@
 "use client";
 
 import { useEffect, useMemo, useState } from "react";
-import { mockGameState } from "@/data/mockQuiz";
 import { presetTopics } from "@/data/topics";
 import type { GenerateQuizResponse } from "@/types/generate";
 import type { QuizQuestion, Topic } from "@/types/quiz";
@@ -28,12 +27,8 @@ export function QuizBuilder() {
     null,
   );
   const [customTopic, setCustomTopic] = useState("");
-  const [question, setQuestion] = useState<QuizQuestion>(
-    mockGameState.questions[mockGameState.currentQuestionIndex],
-  );
-  const [questionTopic, setQuestionTopic] = useState<Topic>(
-    mockGameState.topic,
-  );
+  const [question, setQuestion] = useState<QuizQuestion | null>(null);
+  const [questionTopic, setQuestionTopic] = useState<Topic | null>(null);
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
@@ -68,6 +63,7 @@ export function QuizBuilder() {
 
   async function handleGenerate() {
     if (!selectedTopic || isLoading) {
+      setErrorMessage("Choose a topic first, then let the nonsense begin.");
       return;
     }
 
@@ -109,6 +105,10 @@ export function QuizBuilder() {
   }
 
   function handleAnswerSelect(answerId: string) {
+    if (!question || !questionTopic) {
+      return;
+    }
+
     if (selectedAnswerId) {
       setSelectedAnswerId(answerId);
       return;
@@ -214,8 +214,23 @@ export function QuizBuilder() {
           </div>
 
           {errorMessage ? (
-            <p className="mt-4 rounded-md border border-[#c24b32]/25 bg-[#fff4f1] p-3 text-sm font-semibold leading-6 text-[#8b2f20]">
-              {errorMessage}
+            <div className="mt-4 rounded-md border border-[#c24b32]/25 bg-[#fff4f1] p-3 text-sm font-semibold leading-6 text-[#8b2f20]">
+              <p>{errorMessage}</p>
+              {selectedTopic ? (
+                <button
+                  className="mt-3 min-h-10 rounded-md bg-[#8b2f20] px-4 text-sm font-black text-white transition hover:bg-[#6f2418] focus:outline-none focus:ring-4 focus:ring-[#c24b32]/20 disabled:cursor-not-allowed disabled:opacity-60"
+                  disabled={isLoading}
+                  onClick={handleGenerate}
+                  type="button"
+                >
+                  Retry
+                </button>
+              ) : null}
+            </div>
+          ) : !selectedTopic ? (
+            <p className="mt-4 rounded-md border border-[#f0c14b]/35 bg-[#fff9e8] p-3 text-sm font-semibold leading-6 text-[#7a5a05]">
+              No topic selected yet. Pick a preset or type your own to unlock
+              Generate.
             </p>
           ) : null}
         </div>
@@ -230,80 +245,215 @@ export function QuizBuilder() {
 
       <aside
         aria-busy={isLoading}
-        className="rounded-lg border border-neutral-950/15 bg-white p-5 shadow-[0_18px_45px_rgba(23,23,23,0.08)] sm:p-6"
+        className="min-h-[560px] rounded-lg border border-neutral-950/15 bg-white p-5 shadow-[0_18px_45px_rgba(23,23,23,0.08)] transition sm:p-6"
       >
-        <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
-          <div>
-            <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#2f6f73]">
-              {questionTopic.name} Quiz
-            </p>
-            <h3 className="mt-2 text-2xl font-black">{question.prompt}</h3>
-          </div>
-          <span className="rounded-full bg-[#f0c14b] px-3 py-1 text-sm font-black text-neutral-950">
-            {isLoading ? "Loading" : selectedAnswerId ? "Nice Try" : "Wrong"}
-          </span>
-        </div>
-
-        <div className="mt-5 space-y-3">
-          {question.answers.map((answer) => {
-            const isSelected = selectedAnswerId === answer.id;
-            const isDimmed = Boolean(selectedAnswerId) && !isSelected;
-
-            return (
-              <div className="space-y-2" key={answer.id}>
-                <button
-                  aria-pressed={isSelected}
-                  className={[
-                    "flex min-h-16 w-full items-center gap-3 rounded-md border p-4 text-left transition duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/15 disabled:cursor-wait disabled:opacity-65",
-                    isSelected
-                      ? "border-[#2f6f73] bg-[#e2f0ef] shadow-[0_12px_28px_rgba(47,111,115,0.16)]"
-                      : "border-neutral-950/10 bg-[#fbfaf6] hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa]",
-                    isDimmed ? "opacity-55" : "opacity-100",
-                  ].join(" ")}
-                  disabled={isLoading}
-                  onClick={() => handleAnswerSelect(answer.id)}
-                  type="button"
-                >
-                  <span
-                    className={[
-                      "grid size-8 shrink-0 place-items-center rounded-full text-sm font-black text-white transition",
-                      isSelected ? "bg-[#2f6f73]" : "bg-[#c24b32]",
-                    ].join(" ")}
-                  >
-                    {answer.label}
-                  </span>
-                  <span className="font-semibold text-neutral-800">
-                    {answer.text}
-                  </span>
-                </button>
-
-                {isSelected ? (
-                  <div className="rounded-md border border-[#2f6f73]/20 bg-[#f4fbfa] p-4 text-sm font-semibold leading-6 text-[#25585b] transition duration-200 ease-out">
-                    {answer.wrongExplanation ??
-                      "A bold guess, but this answer has wandered confidently away from the facts."}
-                  </div>
-                ) : null}
-              </div>
-            );
-          })}
-        </div>
-
-        {selectedAnswerId ? (
-          <button
-            className="mt-6 min-h-12 w-full rounded-md bg-neutral-950 px-5 text-base font-black text-white transition hover:bg-[#2f6f73] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25"
-            onClick={() => setSelectedAnswerId(null)}
-            type="button"
-          >
-            Next Question
-          </button>
+        {isLoading ? (
+          <LoadingQuizCard />
+        ) : errorMessage && !question ? (
+          <ApiErrorState
+            canRetry={Boolean(selectedTopic)}
+            message={errorMessage}
+            onRetry={handleGenerate}
+          />
+        ) : question && questionTopic ? (
+          <GeneratedQuizCard
+            isLoading={isLoading}
+            onAnswerSelect={handleAnswerSelect}
+            onNextQuestion={() => setSelectedAnswerId(null)}
+            question={question}
+            questionTopic={questionTopic}
+            selectedAnswerId={selectedAnswerId}
+          />
         ) : (
-          <div className="mt-6 rounded-md bg-[#e2f0ef] p-4 text-sm font-medium leading-6 text-[#25585b]">
-            {isLoading
-              ? "Generating a fresh set of plausible wrong answers."
-              : "Pick the answer that feels almost right. The app will explain why it absolutely is not."}
-          </div>
+          <EmptyQuizState hasSelectedTopic={Boolean(selectedTopic)} />
         )}
       </aside>
+    </>
+  );
+}
+
+function EmptyQuizState({ hasSelectedTopic }: { hasSelectedTopic: boolean }) {
+  return (
+    <div className="flex min-h-[500px] flex-col justify-center">
+      <div className="rounded-lg border border-dashed border-neutral-950/20 bg-[#fbfaf6] p-6">
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#2f6f73]">
+          Ready When You Are
+        </p>
+        <h3 className="mt-3 text-3xl font-black leading-tight">
+          {hasSelectedTopic
+            ? "Generate your first suspicious quiz."
+            : "Pick a topic to start the nonsense."}
+        </h3>
+        <p className="mt-4 text-base font-medium leading-7 text-neutral-700">
+          The quiz will appear here with four convincing wrong answers and a
+          tiny explanation waiting behind each choice.
+        </p>
+      </div>
+
+      <div className="mt-5 rounded-md bg-[#e2f0ef] p-4 text-sm font-semibold leading-6 text-[#25585b]">
+        {hasSelectedTopic
+          ? "Your topic is set. Hit Generate when you are ready."
+          : "No topic selected yet, so Generate is taking a responsible little nap."}
+      </div>
+    </div>
+  );
+}
+
+function LoadingQuizCard() {
+  return (
+    <div className="animate-pulse">
+      <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
+        <div className="w-full">
+          <div className="h-4 w-32 rounded-full bg-[#e2f0ef]" />
+          <div className="mt-4 h-8 w-4/5 rounded-md bg-neutral-200" />
+          <div className="mt-2 h-8 w-3/5 rounded-md bg-neutral-200" />
+        </div>
+        <div className="h-8 w-20 rounded-full bg-[#f0c14b]/70" />
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {["A", "B", "C", "D"].map((label) => (
+          <div
+            className="flex min-h-16 items-center gap-3 rounded-md border border-neutral-950/10 bg-[#fbfaf6] p-4"
+            key={label}
+          >
+            <div className="grid size-8 shrink-0 place-items-center rounded-full bg-[#c24b32]/70 text-sm font-black text-white">
+              {label}
+            </div>
+            <div className="h-4 flex-1 rounded-full bg-neutral-200" />
+          </div>
+        ))}
+      </div>
+
+      <div className="mt-6 rounded-md bg-[#e2f0ef] p-4 text-sm font-semibold leading-6 text-[#25585b]">
+        Generating a fresh set of plausible wrong answers.
+      </div>
+    </div>
+  );
+}
+
+function ApiErrorState({
+  canRetry,
+  message,
+  onRetry,
+}: {
+  canRetry: boolean;
+  message: string;
+  onRetry: () => void;
+}) {
+  return (
+    <div className="flex min-h-[500px] flex-col justify-center">
+      <div className="rounded-lg border border-[#c24b32]/25 bg-[#fff4f1] p-6">
+        <p className="text-sm font-black uppercase tracking-[0.16em] text-[#c24b32]">
+          Generation Stumbled
+        </p>
+        <h3 className="mt-3 text-3xl font-black leading-tight">
+          The quiz refused to be wrong on command.
+        </h3>
+        <p className="mt-4 text-base font-semibold leading-7 text-[#8b2f20]">
+          {message}
+        </p>
+        {canRetry ? (
+          <button
+            className="mt-5 min-h-12 rounded-md bg-[#8b2f20] px-5 text-base font-black text-white transition hover:bg-[#6f2418] focus:outline-none focus:ring-4 focus:ring-[#c24b32]/20"
+            onClick={onRetry}
+            type="button"
+          >
+            Retry
+          </button>
+        ) : null}
+      </div>
+    </div>
+  );
+}
+
+function GeneratedQuizCard({
+  isLoading,
+  onAnswerSelect,
+  onNextQuestion,
+  question,
+  questionTopic,
+  selectedAnswerId,
+}: {
+  isLoading: boolean;
+  onAnswerSelect: (answerId: string) => void;
+  onNextQuestion: () => void;
+  question: QuizQuestion;
+  questionTopic: Topic;
+  selectedAnswerId: string | null;
+}) {
+  return (
+    <>
+      <div className="flex items-start justify-between gap-4 border-b border-neutral-950/10 pb-5">
+        <div>
+          <p className="text-sm font-bold uppercase tracking-[0.16em] text-[#2f6f73]">
+            {questionTopic.name} Quiz
+          </p>
+          <h3 className="mt-2 text-2xl font-black">{question.prompt}</h3>
+        </div>
+        <span className="rounded-full bg-[#f0c14b] px-3 py-1 text-sm font-black text-neutral-950">
+          {selectedAnswerId ? "Nice Try" : "Wrong"}
+        </span>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {question.answers.map((answer) => {
+          const isSelected = selectedAnswerId === answer.id;
+          const isDimmed = Boolean(selectedAnswerId) && !isSelected;
+
+          return (
+            <div className="space-y-2" key={answer.id}>
+              <button
+                aria-pressed={isSelected}
+                className={[
+                  "flex min-h-16 w-full items-center gap-3 rounded-md border p-4 text-left transition duration-200 ease-out focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/15 disabled:cursor-wait disabled:opacity-65",
+                  isSelected
+                    ? "border-[#2f6f73] bg-[#e2f0ef] shadow-[0_12px_28px_rgba(47,111,115,0.16)]"
+                    : "border-neutral-950/10 bg-[#fbfaf6] hover:border-[#2f6f73]/45 hover:bg-[#f4fbfa]",
+                  isDimmed ? "opacity-55" : "opacity-100",
+                ].join(" ")}
+                disabled={isLoading}
+                onClick={() => onAnswerSelect(answer.id)}
+                type="button"
+              >
+                <span
+                  className={[
+                    "grid size-8 shrink-0 place-items-center rounded-full text-sm font-black text-white transition",
+                    isSelected ? "bg-[#2f6f73]" : "bg-[#c24b32]",
+                  ].join(" ")}
+                >
+                  {answer.label}
+                </span>
+                <span className="font-semibold text-neutral-800">
+                  {answer.text}
+                </span>
+              </button>
+
+              {isSelected ? (
+                <div className="rounded-md border border-[#2f6f73]/20 bg-[#f4fbfa] p-4 text-sm font-semibold leading-6 text-[#25585b] transition duration-200 ease-out">
+                  {answer.wrongExplanation ??
+                    "A bold guess, but this answer has wandered confidently away from the facts."}
+                </div>
+              ) : null}
+            </div>
+          );
+        })}
+      </div>
+
+      {selectedAnswerId ? (
+        <button
+          className="mt-6 min-h-12 w-full rounded-md bg-neutral-950 px-5 text-base font-black text-white transition hover:bg-[#2f6f73] focus:outline-none focus:ring-4 focus:ring-[#2f6f73]/25"
+          onClick={onNextQuestion}
+          type="button"
+        >
+          Next Question
+        </button>
+      ) : (
+        <div className="mt-6 rounded-md bg-[#e2f0ef] p-4 text-sm font-medium leading-6 text-[#25585b]">
+          Pick the answer that feels almost right. The app will explain why it
+          absolutely is not.
+        </div>
+      )}
     </>
   );
 }
