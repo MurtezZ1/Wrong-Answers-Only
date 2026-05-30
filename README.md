@@ -30,7 +30,7 @@ Coming soon: `https://github.com/your-username/wrong-answers-only`
 - TypeScript
 - Tailwind CSS
 - React 19
-- OpenAI Responses API
+- Google Gemini API
 - Local browser storage for lightweight score persistence
 
 ## Setup
@@ -43,10 +43,10 @@ npm install
 
 Create `.env.local` manually in the project root.
 
-Add your OpenAI API key:
+Add your Google AI Studio API key:
 
 ```env
-OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API_KEY=your_google_ai_studio_api_key_here
 ```
 
 Run the development server:
@@ -72,7 +72,7 @@ npm run build
 
 | Name | Required | Description |
 | --- | --- | --- |
-| `OPENAI_API_KEY` | Yes | Used by `/api/generate` to call the OpenAI API. |
+| `GEMINI_API_KEY` | Yes | Used by `/api/generate` to call the Google Gemini API. |
 
 The key is only used server-side in the API route and should never be exposed
 to the browser.
@@ -86,7 +86,7 @@ The app enforces the no-correct-answer rule in several layers:
    all-of-the-above/none-of-the-above options.
 2. The user prompt requires a real trivia question with a real correct answer,
    but explicitly forbids showing that answer anywhere.
-3. The API requests strict JSON using a schema with exactly four answer objects.
+3. The API requests structured JSON from Gemini using a schema with exactly four answer objects.
 4. The server transforms every returned answer into `isCorrect: false`.
 5. The frontend never renders a correct answer field. It only displays the
    wrong answer text and the selected answer's hidden explanation.
@@ -195,7 +195,7 @@ app on the public Replit URL.
 3. Open **Tools > Secrets** and add:
 
 ```text
-OPENAI_API_KEY=your_openai_api_key_here
+GEMINI_API_KEY=your_google_ai_studio_api_key_here
 ```
 
 Do not put the API key directly in the source code or README.

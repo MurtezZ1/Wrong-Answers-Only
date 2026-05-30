@@ -2,7 +2,10 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { presetTopics } from "@/data/topics";
-import type { GenerateQuizResponse } from "@/types/generate";
+import type {
+  GenerateQuizErrorResponse,
+  GenerateQuizResponse,
+} from "@/types/generate";
 import type { QuizQuestion, Topic } from "@/types/quiz";
 
 const customTopicId = "topic-custom";
@@ -22,6 +25,8 @@ const initialStats: GameStats = {
   selectedTopics: {},
 };
 
+type AppError = GenerateQuizErrorResponse["error"];
+
 export function QuizBuilder() {
   const [selectedTopicId, setSelectedTopicId] = useState<Topic["id"] | null>(
     null,
@@ -31,7 +36,7 @@ export function QuizBuilder() {
   const [questionTopic, setQuestionTopic] = useState<Topic | null>(null);
   const [selectedAnswerId, setSelectedAnswerId] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
-  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [appError, setAppError] = useState<AppError | null>(null);
   const [stats, setStats] = useState<GameStats>(initialStats);
   const [hasLoadedStats, setHasLoadedStats] = useState(false);
 
@@ -63,12 +68,15 @@ export function QuizBuilder() {
 
   async function handleGenerate() {
     if (!selectedTopic || isLoading) {
-      setErrorMessage("Choose a topic first, then let the nonsense begin.");
+      setAppError({
+        code: "invalid_request",
+        message: "Choose a topic first, then let the nonsense begin.",
+      });
       return;
     }
 
     setIsLoading(true);
-    setErrorMessage(null);
+    setAppError(null);
     setSelectedAnswerId(null);
 
     try {
@@ -83,22 +91,28 @@ export function QuizBuilder() {
       const data = await readGenerateResponse(response);
 
       if (!response.ok || "error" in data) {
-        throw new Error(
+        setAppError(
           "error" in data
-            ? data.error.message
-            : "Quiz generation failed. Please try again.",
+            ? data.error
+            : {
+                code: "generation_failed",
+                message: "Quiz generation failed. Please try again.",
+              },
         );
+        return;
       }
 
       setQuestion(data.quiz.question);
       setQuestionTopic(data.quiz.topic);
       setSelectedAnswerId(null);
     } catch (error) {
-      setErrorMessage(
-        error instanceof Error
-          ? error.message
-          : "Quiz generation failed. Please try again.",
-      );
+      setAppError({
+        code: "generation_failed",
+        message:
+          error instanceof Error
+            ? error.message
+            : "Quiz generation failed. Please try again.",
+      });
     } finally {
       setIsLoading(false);
     }
@@ -226,13 +240,13 @@ export function QuizBuilder() {
             </button>
           </div>
 
-          {errorMessage ? (
+          {appError ? (
             <div
               aria-live="polite"
               className="mt-4 rounded-md border border-[#c24b32]/25 bg-[#fff4f1] p-3 text-sm font-semibold leading-6 text-[#8b2f20]"
               role="status"
             >
-              <p>{errorMessage}</p>
+              <p>{appError.message}</p>
               {selectedTopic ? (
                 <button
                   aria-label="Retry quiz generation"
@@ -274,10 +288,11 @@ export function QuizBuilder() {
       >
         {isLoading ? (
           <LoadingQuizCard />
-        ) : errorMessage && !question ? (
+        ) : appError && !question ? (
           <ApiErrorState
+            code={appError.code}
             canRetry={Boolean(selectedTopic)}
-            message={errorMessage}
+            message={appError.message}
             onRetry={handleGenerate}
           />
         ) : question && questionTopic ? (
@@ -358,13 +373,17 @@ function LoadingQuizCard() {
 
 function ApiErrorState({
   canRetry,
+  code,
   message,
   onRetry,
 }: {
   canRetry: boolean;
+  code: AppError["code"];
   message: string;
   onRetry: () => void;
 }) {
+  const isMissingApiKey = code === "missing_api_key";
+
   return (
     <div className="flex min-h-[500px] flex-col justify-center">
       <div
@@ -373,14 +392,25 @@ function ApiErrorState({
         role="alert"
       >
         <p className="text-sm font-black uppercase text-[#c24b32]">
-          Generation Stumbled
+          {isMissingApiKey ? "API Key Required" : "Generation Stumbled"}
         </p>
         <h3 className="mt-3 text-2xl font-black leading-tight sm:text-3xl">
-          The quiz refused to be wrong on command.
+          {isMissingApiKey
+            ? "Connect Gemini to generate quizzes."
+            : "The quiz refused to be wrong on command."}
         </h3>
         <p className="mt-4 text-base font-semibold leading-7 text-[#8b2f20]">
           {message}
         </p>
+        {isMissingApiKey ? (
+          <div className="mt-4 rounded-md border border-[#c24b32]/15 bg-white/65 p-4 text-sm font-semibold leading-6 text-[#8b2f20]">
+            <p>Create `C:\Users\ERJON\Desktop\Wrong-Answers-Only\.env.local`:</p>
+            <code className="mt-2 block rounded-md bg-neutral-950 p-3 text-white">
+              GEMINI_API_KEY=your_google_ai_studio_api_key_here
+            </code>
+            <p className="mt-3">Then restart the dev server and try again.</p>
+          </div>
+        ) : null}
         {canRetry ? (
           <button
             aria-label="Retry quiz generation"

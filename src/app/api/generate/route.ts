@@ -1,4 +1,4 @@
-import OpenAI from "openai";
+import { GoogleGenAI } from "@google/genai";
 import { NextResponse } from "next/server";
 import type {
   GenerateQuizErrorResponse,
@@ -90,44 +90,31 @@ export async function POST(request: Request) {
     );
   }
 
-  const apiKey = process.env.OPENAI_API_KEY;
+  const apiKey = process.env.GEMINI_API_KEY ?? process.env.OPENAI_API_KEY;
 
   if (!apiKey) {
     return errorResponse(
       "missing_api_key",
-      "OPENAI_API_KEY is not configured.",
+      "Gemini generation is not set up yet. Add GEMINI_API_KEY to .env.local, then restart the dev server.",
       503,
     );
   }
 
-  const client = new OpenAI({ apiKey });
+  const client = new GoogleGenAI({ apiKey });
 
   try {
     const userPrompt = buildUserPrompt(topicResult.topic);
 
-    const response = await client.responses.create({
-      model: "gpt-4.1-mini",
-      input: [
-        {
-          role: "system",
-          content: systemPrompt,
-        },
-        {
-          role: "user",
-          content: userPrompt,
-        },
-      ],
-      text: {
-        format: {
-          type: "json_schema",
-          name: "wrong_answers_only_quiz",
-          strict: true,
-          schema: responseSchema,
-        },
+    const response = await client.models.generateContent({
+      model: "gemini-2.5-flash",
+      contents: `${systemPrompt}\n\n${userPrompt}`,
+      config: {
+        responseMimeType: "application/json",
+        responseJsonSchema: responseSchema,
       },
     });
 
-    const parsed = parseModelOutput(response.output_text);
+    const parsed = parseModelOutput(response.text ?? "");
 
     if (!parsed.ok) {
       return errorResponse(
