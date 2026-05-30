@@ -16,24 +16,32 @@ export const mockQuestion: QuizQuestion = {
       label: "A",
       text: "A sandwich with excellent PR",
       isCorrect: false,
+      wrongExplanation:
+        "Tempting, but sandwiches mostly attract lunch meetings, not planets.",
     },
     {
       id: "answer-gravity-b",
       label: "B",
       text: "Three committees in a trench coat",
       isCorrect: false,
+      wrongExplanation:
+        "Committees can drag things down, but that is more calendar physics.",
     },
     {
       id: "answer-gravity-c",
       label: "C",
       text: "A planet-sized magnet under every shoe",
       isCorrect: false,
+      wrongExplanation:
+        "Magnets are picky about materials; gravity is wildly less selective.",
     },
     {
       id: "answer-gravity-d",
       label: "D",
       text: "The moon, but legally distinct",
       isCorrect: false,
+      wrongExplanation:
+        "The moon helps with tides, but it is not secretly managing all falling.",
     },
   ],
 };
